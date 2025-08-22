@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine Vision System - Web Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2d2d2d;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .search-box {
+            margin-bottom: 20px;
+            padding: 20px;
+            background-color: #3c3c3c;
+            border-radius: 5px;
+        }
+        .search-box input {
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 3px;
+            margin-right: 10px;
+            width: 300px;
+        }
+        .search-box button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .results {
+            background-color: #3c3c3c;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #555;
+        }
+        th {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Machine Vision System - Web Interface</h1>
+        
+        <div class="search-box">
+            <h3>Search Products</h3>
+            <input type="text" id="searchInput" placeholder="Enter product code...">
+            <button onclick="searchProduct()">Search</button>
+            <button onclick="loadAllProducts()">Load All</button>
+        </div>
+        
+        <div class="results">
+            <h3>Results</h3>
+            <div id="resultsTable">
+                <p>Click "Load All" to see all products or search for a specific product code.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function searchProduct() {
+            const productCode = document.getElementById('searchInput').value;
+            if (!productCode) {
+                alert('Please enter a product code');
+                return;
+            }
+            
+            fetch(`/api/search/${productCode}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Search failed');
+                });
+        }
+        
+        function loadAllProducts() {
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(data => {
+                    displayResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load products');
+                });
+        }
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('resultsTable');
+            
+            if (data.length === 0) {
+                resultsDiv.innerHTML = '<p>No results found.</p>';
+                return;
+            }
+            
+            let html = '<table><thead><tr>';
+            html += '<th>ID</th><th>Product Code</th><th>Timestamp</th>';
+            html += '<th>Camera 1</th><th>Camera 2</th><th>Camera 3</th>';
+            html += '<th>Validation</th></tr></thead><tbody>';
+            
+            data.forEach(item => {
+                html += '<tr>';
+                html += `<td>${item.id || item[0]}</td>`;
+                html += `<td>${item.product_code || item[1]}</td>`;
+                html += `<td>${item.timestamp || item[2]}</td>`;
+                html += `<td>${item.camera_1_text || item[3]}</td>`;
+                html += `<td>${item.camera_2_text || item}</td>`;
+                html += `<td>${item.camera_3_text || item}</td>`;
+                html += `<td>${item.validation_result || item}</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
