@@ -153,6 +153,20 @@ class ExcelManager:
 
 # Main GUI Application Class
 class MachineVisionApp(QMainWindow):
+    def start_local_server(self):
+        import subprocess
+        import sys
+        import os
+        # Start HTTP server in templates directory on port 5000
+        templates_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
+        python_exe = sys.executable
+        try:
+            subprocess.Popen([
+                python_exe, '-m', 'http.server', '5000', '--bind', '127.0.0.1'
+            ], cwd=templates_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            print(f"Failed to start local server: {e}")
+
     def __init__(self):
         super().__init__()
         self.is_fullscreen = False
@@ -447,7 +461,11 @@ class MachineVisionApp(QMainWindow):
 
     def open_web_view(self):
         import webbrowser
-        webbrowser.open('http://localhost:5000')
+        import time
+        self.start_local_server()
+        # Wait a moment for the server to start
+        time.sleep(1)
+        webbrowser.open('http://localhost:5000/index.html')
 
     def light_result_indicator(self, status):
         if status == "pass":
