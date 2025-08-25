@@ -154,7 +154,7 @@ while True:
             # Draw detected object and status
             if matching_names:
                 # If fits multiple, show all names
-                status_text = "Correct Dimension: " + ", ".join(matching_names)
+                status_text = "FRONT BRAKE: " + ", ".join(matching_names)
                 status_color = (0, 128, 0)
                 cv2.fillPoly(overlay, [c], color=(0, 255, 0))
                 # Draw measurement lines
@@ -168,7 +168,7 @@ while True:
                             (int(trbrX), int(trbrY) + 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             else:
-                status_text = "Not Correct Dimension"
+                status_text = "REAR BRAKE "
                 status_color = (139, 0, 0)
                 cv2.fillPoly(overlay, [c], color=(0, 0, 255))
 
