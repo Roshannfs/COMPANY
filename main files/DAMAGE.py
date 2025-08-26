@@ -114,11 +114,11 @@ class BrakePadDefectDetector:
                     dimension_issue = True
                     cv2.rectangle(original_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
                     cv2.putText(original_frame, f'DIM ISSUE: {w}x{h}', (x, y - 10), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
                 
                 # Display dimensions
                 cv2.putText(original_frame, f'Size: {w}x{h}px', (10, 30), 
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
         return dimension_issue
     
@@ -175,7 +175,7 @@ class BrakePadDefectDetector:
                 quality_status = "REJECT"
                 color = (0, 0, 255)
             
-            cv2.putText(display_frame, f"Quality: {quality_status}", (10, 150), 
+            cv2.putText(display_frame, f"Quality: {quality_status}", (10, 150),
                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
             
             # Display the frame
@@ -237,7 +237,7 @@ def simple_brake_pad_detection():
         
         # Display defect count
         cv2.putText(frame, f'Defects: {defect_count}', (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         cv2.imshow('Simple Brake Pad Detection', frame)
         

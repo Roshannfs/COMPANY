@@ -575,7 +575,14 @@ class DatabaseViewDialog(QDialog):
 
     def search_product(self):
         prod_code = self.search_entry.text().strip()
-        filtered = self.df[self.df['Product Code'] == prod_code] if not self.df.empty else pd.DataFrame()
+        if not self.df.empty:
+            col = 'product_code' if 'product_code' in self.df.columns else None
+            if col:
+                filtered = self.df[self.df[col] == prod_code]
+            else:
+                filtered = pd.DataFrame()
+        else:
+            filtered = pd.DataFrame()
         self.populate_table(filtered)
 
 if __name__ == '__main__':
