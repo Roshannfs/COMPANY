@@ -162,10 +162,15 @@ class MachineVisionApp(QMainWindow):
         python_exe = sys.executable
         try:
             subprocess.Popen([
-                python_exe, '-m', 'http.server', '5000', '--bind', '127.0.0.1'
+                python_exe, '-m', 'http.server', '5000', '--bind', '0.0.0.0'
             ], cwd=templates_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
-            print(f"Failed to start local server: {e}")
+            print(f"Server error: {e}")
+
+
+
+
+
 
     def __init__(self):
         super().__init__()
@@ -181,7 +186,7 @@ class MachineVisionApp(QMainWindow):
 
         self.processing_timer = QTimer()
         self.processing_timer.timeout.connect(self.process_ocr)
-        self.ocr_interval = 5000 # 5 seconds
+        self.ocr_interval = 1000 # 1 seconds
 
         self.init_ui()
         self.setup_menu()
@@ -206,24 +211,26 @@ class MachineVisionApp(QMainWindow):
         camera_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         camera_grid = QGridLayout(camera_widget)
         camera_grid.setSpacing(10)
-
         for i in range(3):
             frame = QFrame()
             frame.setStyleSheet("background-color: #3a3a3a; border: 2px solid #555; border-radius: 5px;")
             frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             frame.setMinimumSize(300, 250)
             layout = QVBoxLayout(frame)
+            layout.setContentsMargins(1, 1, 1, 1)
+            layout.setSpacing(10)
             title = QLabel(f"Camera {i+1}")
-            title.setAlignment(Qt.AlignCenter)
+            title.setAlignment(Qt.AlignTop)
             title.setFont(QFont('Arial', 12, QFont.Bold))
             title.setStyleSheet("color: #ffffff; background: transparent; border: none;")
             layout.addWidget(title)
             camera_label = QLabel("No Signal")
             camera_label.setAlignment(Qt.AlignCenter)
-            camera_label.setStyleSheet("color: #888; background: transparent; border: none;")
+            camera_label.setStyleSheet("color: #888; background: #222; border: none;")
             camera_label.setMinimumSize(280, 200)
+            camera_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             camera_label.setScaledContents(True)
-            layout.addWidget(camera_label)
+            layout.addWidget(camera_label, stretch=1)
             self.camera_labels[i] = camera_label
             if i < 2:
                 camera_grid.addWidget(frame, i, 0)
@@ -287,11 +294,10 @@ class MachineVisionApp(QMainWindow):
         """)
         layout.addWidget(self.entry_box)
         button_layout1 = QHBoxLayout()
-        self.check_btn = self.create_button("Check", "#0078d4")
         self.start_btn = self.create_button("Start", "#28a745")
         self.stop_btn = self.create_button("Stop", "#dc3545")
         self.reset_btn = self.create_button("Reset", "#6c757d")
-        for btn in [self.check_btn, self.start_btn, self.stop_btn, self.reset_btn]:
+        for btn in [self.start_btn, self.stop_btn, self.reset_btn]:
             button_layout1.addWidget(btn)
         layout.addLayout(button_layout1)
         button_layout2 = QHBoxLayout()
@@ -365,7 +371,6 @@ class MachineVisionApp(QMainWindow):
             print(f"Display update error for camera {camera_id}: {e}")
 
     def setup_button_connections(self):
-        self.check_btn.clicked.connect(self.check_product)
         self.start_btn.clicked.connect(self.start_processing)
         self.stop_btn.clicked.connect(self.stop_processing)
         self.reset_btn.clicked.connect(self.reset_system)
@@ -396,7 +401,7 @@ class MachineVisionApp(QMainWindow):
 
     def start_processing(self):
         self.processing_timer.start(self.ocr_interval)
-        self.statusBar().showMessage("Started OCR auto-processing (every 5 seconds)")
+        self.statusBar().showMessage("Started OCR auto-processing (every 1 seconds)")
         self.result_box.append("Started OCR auto-processing...")
 
     def process_ocr(self):
@@ -404,7 +409,9 @@ class MachineVisionApp(QMainWindow):
         ocr_results = {}
         img_folder = "images"
         os.makedirs(img_folder, exist_ok=True)
-        detected, image_files = False, []
+        image_files = []
+
+        # Process each camera
         for i in range(3):
             frame = self.camera_frames.get(i)
             text = ""
@@ -417,9 +424,22 @@ class MachineVisionApp(QMainWindow):
                 text = "No feed"
                 image_files.append("")
             ocr_results[i] = text
-        detected = any(txt and txt != "" and txt != "No feed" for txt in ocr_results.values())
-        validation_result = "PASS" if detected else "FAIL"
-        self.light_result_indicator("pass" if detected else "fail")
+
+        # Validate conditions
+        validation_result = "FAIL"
+        if all(text != "" and text != "No feed" for text in ocr_results.values()):
+            # Check if camera texts match expected values
+            camera1_ok = "INNER" in ocr_results[0].upper()
+            camera2_ok = "OUTER" in ocr_results[1].upper() 
+            camera3_ok = product_code in ocr_results[2]
+
+            if camera1_ok and camera2_ok and camera3_ok:
+                validation_result = "PASS"
+
+        # Update UI
+        self.light_result_indicator("pass" if validation_result == "PASS" else "fail")
+
+        # Display results
         display_txt = f"\nProduct Code: {product_code}\n"
         for i, txt in ocr_results.items():
             display_txt += f"Camera {i+1}: {txt}\n"
@@ -492,15 +512,50 @@ class MachineVisionApp(QMainWindow):
 
     def setup_menu(self):
         menubar = self.menuBar()
+        # File menu
         file_menu = menubar.addMenu('File')
         exit_action = QAction('Exit', self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        # View menu
         view_menu = menubar.addMenu('View')
         fullscreen_action = QAction('Fullscreen', self)
         fullscreen_action.setShortcut('F11')
         fullscreen_action.triggered.connect(self.toggle_fullscreen)
         view_menu.addAction(fullscreen_action)
+
+        # About menu
+        about_menu = menubar.addMenu('About')
+        about_action = QAction('About', self)
+        about_action.triggered.connect(self.show_about)
+        about_menu.addAction(about_action)
+
+    def show_about(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle('About')
+        layout = QVBoxLayout(dialog)
+
+        label = QLabel()
+        label.setTextFormat(Qt.RichText)
+        label.setOpenExternalLinks(True)
+        label.setText("""
+        <h3>Machine Vision System</h3>
+        © 2025 ROSHAN TECHNOLOGIES !<br>
+        All rights reserved.<br><br>
+        <a href="https://roshannfs.github.io/SRT-/SRT-/">www.roshan_technologies.com</a>
+        """)
+        layout.addWidget(label)
+
+        btn = QPushButton("OK")
+        btn.clicked.connect(dialog.accept)
+        layout.addWidget(btn)
+
+        dialog.exec_()
+
+
+
+
 
     def setup_statusbar(self):
         self.statusBar().showMessage('Ready - System Initialized')

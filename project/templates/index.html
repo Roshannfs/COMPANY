@@ -78,65 +78,106 @@
         </div>
     </div>
 
-    <script>
-        function searchProduct() {
-            const productCode = document.getElementById('searchInput').value;
-            if (!productCode) {
-                alert('Please enter a product code');
-                return;
+<script>
+// Load all products when page loads
+window.onload = function() {
+    console.log("Page loaded, attempting to load products...");
+    loadProducts();
+};
+
+// Function to load all products
+function loadProducts() {
+    console.log("Loading products...");
+    fetch('/api/products')
+        .then(response => {
+            console.log("Response status:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Data received:", data);
+            if (data.success) {
+                displayProducts(data.products);
+            } else {
+                alert('Failed to load products: ' + data.error);
             }
-            
-            fetch(`/api/search/${productCode}`)
-                .then(response => response.json())
-                .then(data => {
-                    displayResults(data);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Search failed');
-                });
-        }
-        
-        function loadAllProducts() {
-            fetch('/api/products')
-                .then(response => response.json())
-                .then(data => {
-                    displayResults(data);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to load products');
-                });
-        }
-        
-        function displayResults(data) {
-            const resultsDiv = document.getElementById('resultsTable');
-            
-            if (data.length === 0) {
-                resultsDiv.innerHTML = '<p>No results found.</p>';
-                return;
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+            alert('Failed to load products: ' + error.message);
+        });
+}
+
+// Function to search for a specific product
+function searchProduct() {
+    const productCode = document.getElementById('searchInput').value.trim();
+    if (!productCode) {
+        alert('Please enter a product code');
+        return;
+    }
+
+    console.log("Searching for product:", productCode);
+    fetch(`/api/search?product_code=${encodeURIComponent(productCode)}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log("Search result:", data);
+            if (data.success) {
+                displayProducts([data.product]);
+            } else {
+                alert('Search failed: ' + data.error);
+                document.getElementById('productTableBody').innerHTML = 
+                    '<tr><td colspan="8" style="text-align: center;">No products found</td></tr>';
             }
-            
-            let html = '<table><thead><tr>';
-            html += '<th>ID</th><th>Product Code</th><th>Timestamp</th>';
-            html += '<th>Camera 1</th><th>Camera 2</th><th>Camera 3</th>';
-            html += '<th>Validation</th></tr></thead><tbody>';
-            
-            data.forEach(item => {
-                html += '<tr>';
-                html += `<td>${item.id || item[0]}</td>`;
-                html += `<td>${item.product_code || item[1]}</td>`;
-                html += `<td>${item.timestamp || item[2]}</td>`;
-                html += `<td>${item.camera_1_text || item[3]}</td>`;
-                html += `<td>${item.camera_2_text || item}</td>`;
-                html += `<td>${item.camera_3_text || item}</td>`;
-                html += `<td>${item.validation_result || item}</td>`;
-                html += '</tr>';
-            });
-            
-            html += '</tbody></table>';
-            resultsDiv.innerHTML = html;
-        }
-    </script>
+        })
+        .catch(error => {
+            console.error('Error searching product:', error);
+            alert('Search failed: ' + error.message);
+        });
+}
+
+// Function to display products in the table
+function displayProducts(products) {
+    const tableBody = document.getElementById('productTableBody');
+    if (!tableBody) {
+        console.error('Table body element not found');
+        return;
+    }
+
+    tableBody.innerHTML = '';
+
+    if (products.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No products found</td></tr>';
+        return;
+    }
+
+    products.forEach(product => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${product.id || ''}</td>
+            <td>${product.product_code || ''}</td>
+            <td>${product.timestamp || ''}</td>
+            <td>${product.camera_1_text || ''}</td>
+            <td>${product.camera_2_text || ''}</td>
+            <td>${product.camera_3_text || ''}</td>
+            <td><span class="status ${(product.validation_result || '').toLowerCase()}">${product.validation_result || ''}</span></td>
+            <td>${product.image_path ? 'Available' : 'N/A'}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// Add Enter key support for search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProduct();
+            }
+        });
+    }
+});
+</script>
+
+
 </body>
 </html>
