@@ -429,9 +429,9 @@ class MachineVisionApp(QMainWindow):
         validation_result = "FAIL"
         if all(text != "" and text != "No feed" for text in ocr_results.values()):
             # Check if camera texts match expected values
-            camera1_ok = "INNER" in ocr_results[0].upper()
-            camera2_ok = "OUTER" in ocr_results[1].upper() 
-            camera3_ok = product_code in ocr_results[2]
+            camera1_ok = "INNER" in ocr_results[0].upper() and product_code in ocr_results[0]
+            camera2_ok = "OUTER" in ocr_results[1].upper() and product_code in ocr_results[1]
+            camera3_ok = product_code in ocr_results[2] and "INNER" in ocr_results[2].upper() and "OUTER" in ocr_results[2].upper()
 
             if camera1_ok and camera2_ok and camera3_ok:
                 validation_result = "PASS"
