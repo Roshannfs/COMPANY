@@ -128,7 +128,7 @@ class ExcelManager:
         today_str = datetime.now().strftime("%d-%m-%Y_%H%M%S")
         self.filename = f"product_info_{today_str}.xlsx"
         df = pd.DataFrame(columns=[
-            "ID", "Product Code", "Timestamp", "Camera 1 Text",
+            "ID", "Product Code", "Timestamp", "Camera 1 Text", 
             "Camera 2 Text", "Camera 3 Text", "Validation Result"
         ])
         df.to_excel(self.filename, index=False)
@@ -156,19 +156,19 @@ class DatabaseViewDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Database View")
         self.setGeometry(200, 200, 1000, 600)
+
         layout = QVBoxLayout(self)
-        
         table = QTableWidget()
         table.setRowCount(len(df))
         table.setColumnCount(len(df.columns))
         table.setHorizontalHeaderLabels(df.columns)
-        
+
         for i, row in df.iterrows():
             for j, value in enumerate(row):
                 table.setItem(i, j, QTableWidgetItem(str(value)))
-        
+
         layout.addWidget(table)
-        
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.close)
         layout.addWidget(close_btn)
@@ -179,7 +179,6 @@ class MachineVisionApp(QMainWindow):
         import subprocess
         import sys
         import os
-        
         templates_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
         python_exe = sys.executable
         try:
@@ -198,12 +197,12 @@ class MachineVisionApp(QMainWindow):
         self.cameras = {}
         self.camera_frames = {}
         self.camera_labels = {}
-        
+
         # Remove automatic timer processing
         self.processing_timer = QTimer()
         self.processing_timer.timeout.connect(self.process_ocr)
         self.ocr_interval = 1000  # Keep for reference but won't be used automatically
-        
+
         self.init_ui()
         self.setup_menu()
         self.setup_statusbar()
@@ -294,6 +293,7 @@ class MachineVisionApp(QMainWindow):
         control_panel.setFrameStyle(QFrame.StyledPanel)
         control_panel.setStyleSheet("background-color: #404040; border: 1px solid #666; border-radius: 5px; padding: 10px;")
         control_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
         layout = QVBoxLayout(control_panel)
 
         entry_label = QLabel("Enter Barcode / Product Code:")
@@ -325,18 +325,18 @@ class MachineVisionApp(QMainWindow):
 
         for btn in [self.start_btn, self.stop_btn, self.reset_btn, self.check_btn]:
             button_layout1.addWidget(btn)
-
         layout.addLayout(button_layout1)
 
         button_layout2 = QHBoxLayout()
         self.database_btn = self.create_button("Database", "#6c757d")
         self.web_btn = self.create_button("Web View", "#17a2b8")
+
         for btn in [self.database_btn, self.web_btn]:
             button_layout2.addWidget(btn)
-
         layout.addLayout(button_layout2)
 
         self.setup_button_connections()
+
         return control_panel
 
     def create_button(self, text, color):
@@ -400,6 +400,7 @@ class MachineVisionApp(QMainWindow):
             bytes_per_line = ch * w
             qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qt_image)
+
             scaled_pixmap = pixmap.scaled(
                 self.camera_labels[camera_id].size(),
                 Qt.KeepAspectRatio,
@@ -419,7 +420,7 @@ class MachineVisionApp(QMainWindow):
         self.check_btn.clicked.connect(self.check_and_process_ocr)  # New connection
 
     def check_and_process_ocr(self):
-        """Process OCR on demand when Check button is clicked"""
+        """Process OCR on demand when Check button is clicked - FIXED VALIDATION"""
         product_code = self.entry_box.text().strip()
         if not product_code:
             self.result_box.append("Please enter a product code before checking.")
@@ -441,14 +442,47 @@ class MachineVisionApp(QMainWindow):
                 text = "No feed"
             ocr_results[i] = text
 
-        # Validate conditions
+        # NEW VALIDATION LOGIC - FIXED
         validation_result = "FAIL"
-        if all(text != "" and text != "No feed" for text in ocr_results.values()):
-            camera1_ok = "INNER" in ocr_results[0].upper() and product_code in ocr_results[0]
-            camera2_ok = "OUTER" in ocr_results[1].upper() and product_code in ocr_results[1]
-            camera3_ok = product_code in ocr_results[2] and "INNER" in ocr_results[2].upper() and "OUTER" in ocr_results[2].upper()
-            if camera1_ok and camera2_ok and camera3_ok:
-                validation_result = "PASS"
+        any_camera_passed = False
+
+        print(f"DEBUG: Product code: '{product_code}'")
+        print(f"DEBUG: OCR results: {ocr_results}")
+
+        # Check each camera
+        for i, text in ocr_results.items():
+            print(f"DEBUG: Checking camera {i+1}: '{text}'")
+
+            # Skip cameras with no feed or empty text
+            if text == "" or text == "No feed":
+                print(f"DEBUG: Camera {i+1} skipped (no feed or empty)")
+                continue
+
+            # Convert to uppercase for case-insensitive comparison
+            text_upper = text.upper()
+            product_code_upper = product_code.upper()
+
+            # Check if this camera found any of the required keywords
+            has_inner = "INNER" in text_upper
+            has_outer = "OUTER" in text_upper  
+            has_product_code = product_code_upper in text_upper
+
+            print(f"DEBUG: Camera {i+1} - INNER: {has_inner}, OUTER: {has_outer}, Product: {has_product_code}")
+
+            camera_found_keyword = has_inner or has_outer or has_product_code
+
+            if camera_found_keyword:
+                any_camera_passed = True
+                print(f"DEBUG: Camera {i+1} PASSED! Setting validation to PASS")
+                break  # At least one camera passed, we can stop checking
+
+        # Set result based on whether any camera passed
+        if any_camera_passed:
+            validation_result = "PASS"
+        else:
+            validation_result = "FAIL"
+
+        print(f"DEBUG: Final validation result: {validation_result}")
 
         # Only save images if validation fails
         save_img = ""
@@ -460,7 +494,7 @@ class MachineVisionApp(QMainWindow):
                     cv2.imwrite(img_file, frame)
                     image_files.append(img_file)
             save_img = image_files[0] if image_files else ""
-        else:
+        else:  
             image_files = ["", "", ""]
 
         # Display results
@@ -484,6 +518,7 @@ class MachineVisionApp(QMainWindow):
             validation_result,
             save_img
         )
+
         self.excel_manager.append_data(
             product_id,
             product_code,
@@ -492,6 +527,7 @@ class MachineVisionApp(QMainWindow):
             ocr_results.get(2, ""),
             validation_result
         )
+
         self.light_result_indicator("pass" if validation_result == "PASS" else "fail")
 
     def check_product(self):
@@ -507,13 +543,13 @@ class MachineVisionApp(QMainWindow):
             image_path = result[7] if len(result) >= 8 else ''
             result_text = f"Product code: {product_code}\nStatus: {validated}\n"
             self.result_box.append(result_text)
-            
+
             if image_path and os.path.exists(image_path):
                 pix = QPixmap(image_path).scaled(180, 140, Qt.KeepAspectRatio)
                 img_lbl = QLabel()
                 img_lbl.setPixmap(pix)
                 self.result_box.append(f"[Image loaded: {image_path}]")
-                
+
             self.light_result_indicator("pass" if validated.upper() == "PASS" else "fail")
         else:
             self.result_box.append(f"No results found for product code: {product_code}")
@@ -525,7 +561,7 @@ class MachineVisionApp(QMainWindow):
         self.result_box.append("Started OCR auto-processing...")
 
     def process_ocr(self):
-        """Original OCR processing method - keep for compatibility"""
+        """Original OCR processing method - FIXED VALIDATION"""
         product_code = self.entry_box.text().strip()
         ocr_results = {}
         img_folder = "images"
@@ -546,18 +582,38 @@ class MachineVisionApp(QMainWindow):
                 image_files.append("")
             ocr_results[i] = text
 
-        # Validate conditions (use the same logic as check_and_process_ocr)
+        # NEW VALIDATION LOGIC - FIXED (same as check_and_process_ocr)
         validation_result = "FAIL"
-        
-        if all(text != "" and text != "No feed" for text in ocr_results.values()):
-            camera1_ok = "INNER" in ocr_results[0].upper() or product_code in ocr_results[0] or "OUTER" in ocr_results[0].upper()
-            camera2_ok = "OUTER" in ocr_results[1].upper() or product_code in ocr_results[1] or "INNER" in ocr_results[1].upper()
-            #camera3_ok = product_code in ocr_results[2] or "INNER" in ocr_results[2].upper() or "OUTER" in ocr_results[2].upper()
-            if camera1_ok and camera2_ok :
-                validation_result = "PASS"
-                
+        any_camera_passed = False
 
-        self.light_result_indicator("pass" if validation_result else "fail")
+        # Check each camera
+        for i, text in ocr_results.items():
+            # Skip cameras with no feed or empty text
+            if text == "" or text == "No feed":
+                continue
+
+            # Convert to uppercase for case-insensitive comparison
+            text_upper = text.upper()
+            product_code_upper = product_code.upper()
+
+            # Check if this camera found any of the required keywords
+            has_inner = "INNER" in text_upper
+            has_outer = "OUTER" in text_upper  
+            has_product_code = product_code_upper in text_upper
+
+            camera_found_keyword = has_inner or has_outer or has_product_code
+
+            if camera_found_keyword:
+                any_camera_passed = True
+                break  # At least one camera passed, we can stop checking
+
+        # Set result based on whether any camera passed
+        if any_camera_passed:
+            validation_result = "PASS"
+        else:
+            validation_result = "FAIL"
+
+        self.light_result_indicator("pass" if validation_result == "PASS" else "fail")
 
         # Display results
         display_txt = f"\nProduct Code: {product_code}\n"
@@ -567,6 +623,7 @@ class MachineVisionApp(QMainWindow):
         self.result_box.append(display_txt)
 
         save_img = next((img for (i, img) in enumerate(image_files) if ocr_results[i] not in ["", "No feed"]), "")
+        
         product_id = self.db_manager.insert_product(
             product_code,
             ocr_results.get(0, ""),
@@ -575,6 +632,7 @@ class MachineVisionApp(QMainWindow):
             validation_result,
             save_img
         )
+
         self.excel_manager.append_data(
             product_id,
             product_code,
@@ -635,7 +693,7 @@ class MachineVisionApp(QMainWindow):
 
     def setup_menu(self):
         menubar = self.menuBar()
-        
+
         # File menu
         file_menu = menubar.addMenu('File')
         exit_action = QAction('Exit', self)
@@ -667,32 +725,32 @@ class MachineVisionApp(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle('About')
         layout = QVBoxLayout(dialog)
+
         label = QLabel()
         label.setTextFormat(Qt.RichText)
         label.setOpenExternalLinks(True)
         label.setText("""
-            <h3>Machine Vision System</h3>
-            <p>Professional OCR and validation system</p>
-            <p>Version: 2.0</p>
-            <p>Features:</p>
-            <ul>
-                <li>Multi-camera OCR processing</li>
-                <li>Real-time validation</li>
-                <li>Database storage</li>
-                <li>Excel export</li>
-                <li>Web interface</li>
-            </ul>
+        <h2>Machine Vision OCR System</h2>
+        <p><b>Professional OCR and validation system</b></p>
+        <p><b>Version:</b> 2.0 - FIXED VALIDATION</p>
+        <p><b>Features:</b></p>
+        <ul>
+        <li>Multi-camera OCR processing</li>
+        <li>Real-time validation with PASS/FAIL indicators</li>
+        <li>Database storage and Excel export</li>
+        <li>Fixed validation logic: PASS if any camera finds INNER, OUTER, or Product Code</li>
+        </ul>
         """)
         layout.addWidget(label)
-        
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(dialog.close)
         layout.addWidget(close_btn)
-        
+
         dialog.exec_()
 
     def setup_statusbar(self):
-        self.statusBar().showMessage("Ready")
+        self.statusBar().showMessage("System Ready")
 
     def apply_dark_styles(self):
         self.setStyleSheet("""
@@ -701,18 +759,23 @@ class MachineVisionApp(QMainWindow):
                 color: #ffffff;
             }
             QMenuBar {
-                background-color: #404040;
+                background-color: #3c3c3c;
                 color: #ffffff;
-                border-bottom: 1px solid #555;
-            }
-            QMenuBar::item {
-                padding: 4px 8px;
+                border: 1px solid #555;
             }
             QMenuBar::item:selected {
-                background-color: #555;
+                background-color: #0078d4;
+            }
+            QMenu {
+                background-color: #3c3c3c;
+                color: #ffffff;
+                border: 1px solid #555;
+            }
+            QMenu::item:selected {
+                background-color: #0078d4;
             }
             QStatusBar {
-                background-color: #404040;
+                background-color: #3c3c3c;
                 color: #ffffff;
                 border-top: 1px solid #555;
             }
@@ -723,8 +786,12 @@ class MachineVisionApp(QMainWindow):
             camera.stop()
         event.accept()
 
+# Main execution
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle('Fusion')  # Use Fusion style for better cross-platform appearance
+    
     window = MachineVisionApp()
     window.show()
+    
     sys.exit(app.exec_())
